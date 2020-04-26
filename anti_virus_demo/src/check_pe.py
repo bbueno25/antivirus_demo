@@ -1,70 +1,21 @@
-#! /usr/bin/python2
-import pefile
-import os
+"""
+DOCSTRING
+"""
+# standard
+import argparse
 import array
 import math
+import os
 import pickle
-from sklearn.externals import joblib
 import sys
-import argparse
-
-def get_entropy(data):
-    if len(data) == 0:
-	return 0.0
-    occurences = array.array('L', [0]*256)
-    for x in data:
-  	occurences[x if isinstance(x, int) else ord(x)] += 1
-
-    entropy = 0
-    for x in occurences:
-	if x:
-	    p_x = float(x) / len(data)
-	    entropy -= p_x*math.log(p_x, 2)
-
-    return entropy
-
-def get_resources(pe):
-    """Extract resources :
-    [entropy, size]"""
-    resources = []
-    if hasattr(pe, 'DIRECTORY_ENTRY_RESOURCE'):
-	try:
-            for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
-                if hasattr(resource_type, 'directory'):
-                    for resource_id in resource_type.directory.entries:
-                        if hasattr(resource_id, 'directory'):
-                            for resource_lang in resource_id.directory.entries:
-                                data = pe.get_data(resource_lang.data.struct.OffsetToData, resource_lang.data.struct.Size)
-                                size = resource_lang.data.struct.Size
-                                entropy = get_entropy(data)
-
-                                resources.append([entropy, size])
-        except Exception as e:
-            return resources
-    return resources
-
-def get_version_info(pe):
-    """Return version infos"""
-    res = {}
-    for fileinfo in pe.FileInfo:
-        if fileinfo.Key == 'StringFileInfo':
-            for st in fileinfo.StringTable:
-                for entry in st.entries.items():
-                    res[entry[0]] = entry[1]
-        if fileinfo.Key == 'VarFileInfo':
-            for var in fileinfo.Var:
-                res[var.entry.items()[0][0]] = var.entry.items()[0][1]
-    if hasattr(pe, 'VS_FIXEDFILEINFO'):
-          res['flags'] = pe.VS_FIXEDFILEINFO.FileFlags
-          res['os'] = pe.VS_FIXEDFILEINFO.FileOS
-          res['type'] = pe.VS_FIXEDFILEINFO.FileType
-          res['file_version'] = pe.VS_FIXEDFILEINFO.FileVersionLS
-          res['product_version'] = pe.VS_FIXEDFILEINFO.ProductVersionLS
-          res['signature'] = pe.VS_FIXEDFILEINFO.Signature
-          res['struct_version'] = pe.VS_FIXEDFILEINFO.StrucVersion
-    return res
+# third-party
+import pefile
+import sklearn.externals.joblib as joblib
 
 def extract_infos(fpath):
+    """
+    DOCSTRING
+    """
     res = {}
     pe = pefile.PE(fpath)
     res['Machine'] = pe.FILE_HEADER.Machine
@@ -101,8 +52,6 @@ def extract_infos(fpath):
     res['SizeOfHeapCommit'] = pe.OPTIONAL_HEADER.SizeOfHeapCommit
     res['LoaderFlags'] = pe.OPTIONAL_HEADER.LoaderFlags
     res['NumberOfRvaAndSizes'] = pe.OPTIONAL_HEADER.NumberOfRvaAndSizes
-
-    # Sections
     res['SectionsNb'] = len(pe.sections)
     entropy = map(lambda x:x.get_entropy(), pe.sections)
     res['SectionsMeanEntropy'] = sum(entropy)/float(len(entropy))
@@ -116,8 +65,6 @@ def extract_infos(fpath):
     res['SectionsMeanVirtualsize'] = sum(virtual_sizes)/float(len(virtual_sizes))
     res['SectionsMinVirtualsize'] = min(virtual_sizes)
     res['SectionMaxVirtualsize'] = max(virtual_sizes)
-
-    #Imports
     try:
         res['ImportsNbDLL'] = len(pe.DIRECTORY_ENTRY_IMPORT)
         imports = sum([x.imports for x in pe.DIRECTORY_ENTRY_IMPORT], [])
@@ -127,14 +74,10 @@ def extract_infos(fpath):
         res['ImportsNbDLL'] = 0
         res['ImportsNb'] = 0
         res['ImportsNbOrdinal'] = 0
-
-    #Exports
     try:
         res['ExportNb'] = len(pe.DIRECTORY_ENTRY_EXPORT.symbols)
     except AttributeError:
-        # No export
         res['ExportNb'] = 0
-    #Resources
     resources= get_resources(pe)
     res['ResourcesNb'] = len(resources)
     if len(resources)> 0:
@@ -154,15 +97,10 @@ def extract_infos(fpath):
         res['ResourcesMeanSize'] = 0
         res['ResourcesMinSize'] = 0
         res['ResourcesMaxSize'] = 0
-
-    # Load configuration size
     try:
         res['LoadConfigurationSize'] = pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.Size
     except AttributeError:
         res['LoadConfigurationSize'] = 0
-
-
-    # Version configuration size
     try:
         version_infos = get_version_info(pe)
         res['VersionInformationSize'] = len(version_infos.keys())
@@ -170,27 +108,76 @@ def extract_infos(fpath):
         res['VersionInformationSize'] = 0
     return res
 
+def get_entropy(data):
+    """
+    DOCSTRING
+    """
+    if len(data) == 0:
+        return 0.0
+    occurences = array.array('L', [0]*256)
+    for x in data:
+        occurences[x if isinstance(x, int) else ord(x)] += 1
+        entropy = 0
+    for x in occurences:
+        if x:
+            p_x = float(x) / len(data)
+            entropy -= p_x*math.log(p_x, 2)
+    return entropy
+
+def get_resources(pe):
+    """
+    Extract resources:
+    [entropy, size]
+    """
+    resources = []
+    if hasattr(pe, 'DIRECTORY_ENTRY_RESOURCE'):
+        try:
+            for resource_type in pe.DIRECTORY_ENTRY_RESOURCE.entries:
+                if hasattr(resource_type, 'directory'):
+                    for resource_id in resource_type.directory.entries:
+                        if hasattr(resource_id, 'directory'):
+                            for resource_lang in resource_id.directory.entries:
+                                data = pe.get_data(resource_lang.data.struct.OffsetToData, 
+                                                   resource_lang.data.struct.Size)
+                                size = resource_lang.data.struct.Size
+                                entropy = get_entropy(data)
+                                resources.append([entropy, size])
+        except Exception as e:
+            return resources
+    return resources
+
+def get_version_info(pe):
+    """
+    Return version infos
+    """
+    res = {}
+    for fileinfo in pe.FileInfo:
+        if fileinfo.Key == 'StringFileInfo':
+            for st in fileinfo.StringTable:
+                for entry in st.entries.items():
+                    res[entry[0]] = entry[1]
+        if fileinfo.Key == 'VarFileInfo':
+            for var in fileinfo.Var:
+                res[var.entry.items()[0][0]] = var.entry.items()[0][1]
+    if hasattr(pe, 'VS_FIXEDFILEINFO'):
+          res['flags'] = pe.VS_FIXEDFILEINFO.FileFlags
+          res['os'] = pe.VS_FIXEDFILEINFO.FileOS
+          res['type'] = pe.VS_FIXEDFILEINFO.FileType
+          res['file_version'] = pe.VS_FIXEDFILEINFO.FileVersionLS
+          res['product_version'] = pe.VS_FIXEDFILEINFO.ProductVersionLS
+          res['signature'] = pe.VS_FIXEDFILEINFO.Signature
+          res['struct_version'] = pe.VS_FIXEDFILEINFO.StrucVersion
+    return res
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Detect malicious files')
-    parser.add_argument('FILE', help='File to be tested')
+    parser = argparse.ArgumentParser(description='detect malicious files')
+    parser.add_argument('FILE', help='file to be tested')
     args = parser.parse_args()
-    # Load classifier
-    clf = joblib.load(os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        'classifier/classifier.pkl'
-    ))
-    features = pickle.loads(open(os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        'classifier/features.pkl'),
-        'r').read()
-    )
-
+    classifier = joblib.load(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                   'classifier/classifier.pkl'))
+    features = pickle.loads(open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                              'classifier/features.pkl'),'r').read())
     data = extract_infos(args.FILE)
-
     pe_features = map(lambda x:data[x], features)
-
-    res= clf.predict([pe_features])[0]
-    print('The file %s is %s' % (
-        os.path.basename(sys.argv[1]),
-        ['malicious', 'legitimate'][res])
-    )
+    res = classifier.predict([pe_features])[0]
+    print('The file %s is %s' % (os.path.basename(sys.argv[1]), ['malicious', 'legitimate'][res]))

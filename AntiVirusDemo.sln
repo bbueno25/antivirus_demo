@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.1082
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "anti_virus_demo", "anti_virus_demo\anti_virus_demo.pyproj", "{7719ADE8-D1D5-4045-BF98-BC22DD70B14B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7719ADE8-D1D5-4045-BF98-BC22DD70B14B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7719ADE8-D1D5-4045-BF98-BC22DD70B14B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {04346137-D17C-4D5D-8BD4-8BF847CD315B}
+	EndGlobalSection
+EndGlobal
